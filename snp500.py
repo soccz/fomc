@@ -29,57 +29,30 @@ fomc_dates = pd.to_datetime(fomc_dates)
 sp500['FOMC_window'] = sp500.index.map(lambda date: any((date >= fomc_date - pd.Timedelta(days=7)) & (date <= fomc_date + pd.Timedelta(days=7)) for fomc_date in fomc_dates))
 sp500['Year'] = sp500.index.year
 
-# 발표 전후 1주일 동안의 거래량 변화율 계산 함수
-def calculate_volume_change(sp500, fomc_dates):
-    volume_changes = []
-    for fomc_date in fomc_dates:
-        pre_window = sp500.loc[(sp500.index >= fomc_date - pd.Timedelta(days=7)) & (sp500.index < fomc_date)]
-        post_window = sp500.loc[(sp500.index > fomc_date) & (sp500.index <= fomc_date + pd.Timedelta(days=7))]
-        if not pre_window.empty and not post_window.empty:
-            pre_avg_volume = pre_window['Volume'].mean()
-            post_avg_volume = post_window['Volume'].mean()
-            volume_change = (post_avg_volume - pre_avg_volume) / pre_avg_volume
-            volume_changes.append(volume_change)
-    return volume_changes
+# FOMC 윈도우와 비 FOMC 윈도우의 거래량 데이터 분리
+fomc_window_volume = sp500[sp500['FOMC_window']]['Volume']
+non_fomc_window_volume = sp500[~sp500['FOMC_window']]['Volume']
 
-volume_changes = calculate_volume_change(sp500, fomc_dates)
-
-# 변화율의 평균과 표준편차 계산
-mean_change = np.mean(volume_changes)
-std_change = np.std(volume_changes)
+# 두 그룹의 평균 거래량 계산
+fomc_window_mean = fomc_window_volume.mean()
+non_fomc_window_mean = non_fomc_window_volume.mean()
 
 # t-검정 수행
-t_stat, p_value = stats.ttest_1samp(volume_changes, 0)
+t_stat, p_value = stats.ttest_ind(fomc_window_volume, non_fomc_window_volume, equal_var=False)
 
 # 결과 출력
-print(f"Mean Volume Change: {mean_change}")
-print(f"Standard Deviation of Volume Change: {std_change}")
+print(f"FOMC Window Mean Volume: {fomc_window_mean}")
+print(f"Non-FOMC Window Mean Volume: {non_fomc_window_mean}")
 print(f"T-Statistic: {t_stat}")
 print(f"P-Value: {p_value}")
 
-# 평균 거래량 비교 시각화
-data = {
-    'Non-FOMC Days': non_fomc_mean,
-    'FOMC Post Day': fomc_post_mean,
-    'FOMC Post Week': fomc_post_week_mean
-}
-
-names = list(data.keys())
-values = list(data.values())
-
-plt.figure(figsize=(10, 6))
-plt.bar(names, values, color=['blue', 'orange', 'green'])
-plt.title('Average Trading Volume: Non-FOMC Days vs. FOMC Post Days')
-plt.xlabel('Category')
+# 시각화
+volume_summary = sp500.groupby(['Year', 'FOMC_window'])['Volume'].mean().unstack()
+volume_summary.plot(kind='bar', figsize=(14, 7), width=0.8)
+plt.title('Average Trading Volume During FOMC Window vs. Non-FOMC Window by Year')
 plt.ylabel('Average Volume')
+plt.xlabel('Year')
+plt.xticks(rotation=45)
+plt.legend(['Non-FOMC Window', 'FOMC Window'])
 plt.grid(True, linestyle='--', alpha=0.6)
-plt.show()
-
-# 변화율 시각화
-plt.figure(figsize=(10, 6))
-plt.hist(volume_changes, bins=20, edgecolor='black', alpha=0.7)
-plt.axvline(mean_change, color='r', linestyle='dashed', linewidth=1)
-plt.title('Distribution of Volume Changes Around FOMC Announcements')
-plt.xlabel('Volume Change')
-plt.ylabel('Frequency')
 plt.show()
