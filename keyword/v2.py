@@ -15,7 +15,7 @@ nltk.download('punkt')
 nltk.download('stopwords')
 
 # Bing 뉴스 검색 API 키
-api_key = '4378fc2ec4bf44baa1cb38792cdd2333'
+api_key = 'BING_API'
 query = 'FOMC rate hike OR rate hold OR rate cut'
 
 # Bing 뉴스 검색 API 요청 URL 구성
